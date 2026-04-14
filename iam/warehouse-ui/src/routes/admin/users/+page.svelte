@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
-  import { initKeycloak, getRoles } from '$lib/auth/keycloak';
+  import { initKeycloak, getRoles, keycloak } from '$lib/auth/keycloak';
   import { fetchRoles, type RoleType } from '$lib/api/lookup';
   import {
     getUsers,
@@ -21,7 +21,8 @@
   let totalRows   = 0;
   const PAGE_SIZE = 20;
 
-  let processingId: string | null = null;
+  let processingId:  string | null = null;
+  let currentUserId: string        = '';
 
   // ── Modal cambia ruoli ────────────────────────────────────────────────────────
 
@@ -122,6 +123,7 @@
       goto('/', { replaceState: true });
       return;
     }
+    currentUserId = keycloak.subject ?? '';
     await loadPage(1);
   });
 
@@ -193,7 +195,8 @@
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {#each users as user (user.id)}
-          {@const isProcessing = processingId === user.id}
+          {@const isProcessing  = processingId === user.id}
+          {@const isCurrentUser = user.id === currentUserId}
 
           <div class="bg-surface border border-white/8 rounded-2xl p-5 flex flex-col gap-4
                       transition-opacity duration-200 {isProcessing ? 'opacity-50 pointer-events-none' : ''}">
@@ -210,6 +213,12 @@
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2 flex-wrap">
                   <p class="font-bold text-slate-100 truncate">{user.username}</p>
+                  {#if isCurrentUser}
+                    <span class="inline-flex items-center text-xs px-2 py-0.5 rounded-full
+                                 bg-slate-600/30 border border-white/12 text-slate-400 font-medium shrink-0">
+                      Tu
+                    </span>
+                  {/if}
                   {#if user.enabled}
                     <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full
                                  bg-green-500/10 border border-green-500/20 text-green-400 font-medium shrink-0">
@@ -247,7 +256,8 @@
               <!-- Cambia ruoli -->
               <button
                 on:click={() => openRoleModal(user)}
-                disabled={isProcessing}
+                disabled={isProcessing || isCurrentUser}
+                title={isCurrentUser ? 'Non puoi modificare il tuo account' : undefined}
                 class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
                        text-blue-400 border border-blue-500/25 bg-blue-500/8
                        hover:bg-blue-500/15 hover:border-blue-500/40
@@ -262,7 +272,8 @@
               <!-- Disabilita — solo se l'utente è attivo -->
               <button
                 on:click={() => handleToggleEnabled(user)}
-                disabled={isProcessing}
+                disabled={isProcessing || isCurrentUser}
+                title={isCurrentUser ? 'Non puoi modificare il tuo account' : undefined}
                 class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
                        disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150
                        {user.enabled
@@ -287,7 +298,8 @@
               <!-- Elimina -->
               <button
                 on:click={() => deleteModal = user}
-                disabled={isProcessing}
+                disabled={isProcessing || isCurrentUser}
+                title={isCurrentUser ? 'Non puoi eliminare il tuo account' : undefined}
                 class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
                        text-red-400 border border-red-500/25 bg-red-500/8
                        hover:bg-red-500/15 hover:border-red-500/40
