@@ -1,0 +1,11 @@
+<!doctype html>
+<html>
+  <head><title>SSO check</title></head>
+  <body>
+    <script>
+      // Pagina utilizzata da keycloak-js per il check-sso silenzioso via iframe.
+      // Non modificare: è parte del protocollo OIDC silent authentication.
+      parent.postMessage(location.href, location.origin);
+    </script>
+  </body>
+</html>
