@@ -1,0 +1,25 @@
+# Build output
+target/
+
+# Git
+.git/
+.github/
+.gitignore
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Docker/Kubernetes (non servono dentro l'immagine)
+docker-compose/
+kubernetes/
+Dockerfile
+
+# Documentazione
+**/*.md
+.claude/
+
+# Test reports
+**/surefire-reports/
+**/failsafe-reports/

@@ -8,6 +8,9 @@
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
 		<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+		<!-- config.js è generato a runtime da entrypoint.sh e popola window.__APP_CONFIG__ -->
+		<!-- In sviluppo locale il file non esiste: config.ts ricade sui fallback VITE_ -->
+		<script src="/config.js" onerror="console.warn('[config] /config.js non trovato, uso fallback VITE_')"></script>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">
