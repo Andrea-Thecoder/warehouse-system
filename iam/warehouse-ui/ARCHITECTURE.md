@@ -1,6 +1,7 @@
-# SvelteKit + Keycloak — Architettura SPA
+# SvelteKit SPA — Architectural Reference
 
-Guida completa per replicare l'architettura di autenticazione e gestione utenti usata in **warehouse-ui**.
+Guida generica e riutilizzabile per costruire una SPA con SvelteKit, autenticazione Keycloak e backend REST.  
+Tutte le regole, pattern e gotcha derivano dall'esperienza diretta sul progetto e possono essere copiate su qualsiasi progetto FE con lo stesso stack.
 
 ---
 
@@ -10,74 +11,117 @@ Guida completa per replicare l'architettura di autenticazione e gestione utenti 
 |---|---|
 | Framework | SvelteKit 2 (Svelte 4) — SPA pura, SSR disabilitato |
 | CSS | Tailwind CSS v4 via `@tailwindcss/vite` |
-| Linguaggio | TypeScript strict |
+| Linguaggio | TypeScript (`strict: true`) |
 | Bundler | Vite 5 |
-| Auth | keycloak-js (OIDC Authorization Code + PKCE S256) |
-| Backend | Quarkus REST (o Spring Boot) |
-| IAM | Keycloak 26 |
+| Auth | keycloak-js — OIDC Authorization Code + PKCE S256 |
+| Backend | REST API (es. Quarkus, Spring Boot) |
+| IAM | Keycloak 26+ |
 
 ---
 
-## Regole fondamentali
+## Regole fondamentali (non derogabili)
 
-- **Nessun file `.server.ts`** — SvelteKit è solo routing + UI client-side
-- **Nessuna Keycloak Admin API dal FE** — tutto passa dal backend REST
-- **Token in `sessionStorage`** — non localStorage, non cookie
-- **SSR disabilitato globalmente** via `src/routes/+layout.ts`
+### SvelteKit è solo client-side
+
+- **Vietato** creare file `*.server.ts` / `*.server.js` o qualsiasi file `.server.`
+- **Vietato** usare `load` server-side, `actions` SvelteKit o `import { ... } from '$app/server'`
+- SSR va disabilitato **globalmente** in `src/routes/+layout.ts`
 
 ```ts
 // src/routes/+layout.ts
 export const ssr = false;
 ```
 
+### Tutto il privileged work passa dal backend
+
+- Il FE non chiama mai la Keycloak Admin API direttamente
+- Operazioni privilegiate: `FE → POST backend → backend chiama Keycloak Admin API`
+- Nessun secret o credenziale admin nel FE; solo variabili `VITE_` (pubbliche per definizione)
+
+### Token storage
+
+- I token JWT (access + refresh) vanno in `sessionStorage`, non in `localStorage` né in cookie
+- Chiavi: `'access_token'` e `'refresh_token'`
+
+### Variabili d'ambiente
+
+- Prefisso obbligatorio: `VITE_` (es. `VITE_BACKEND_URL`, `VITE_KEYCLOAK_URL`)
+- Nessun `.env` committato nel repository
+- In produzione usare il pattern di runtime injection (vedi sezione dedicata)
+
 ---
 
-## Struttura file
+## Struttura `src/`
 
 ```
 src/
-├── app.css                        # @import tailwindcss + design tokens
+├── app.html                        # template HTML root
+├── app.css                         # @import tailwindcss + design tokens
+├── app.d.ts                        # tipi globali App namespace
 ├── lib/
-│   ├── config.ts                  # variabili VITE_ centralizzate
+│   ├── config.ts                   # costanti centralizzate (VITE_ + runtime injection)
 │   ├── api/
-│   │   ├── api.ts                 # apiFetch<T> — wrapper HTTP generico
-│   │   ├── auth.ts                # register()
-│   │   ├── lookup.ts              # fetchRoles()
-│   │   ├── admin.ts               # pending users: list, approve, reject
-│   │   └── users.ts               # all users: list, update roles, disable, delete
+│   │   ├── api.ts                  # apiFetch<T> — wrapper HTTP generico
+│   │   ├── auth.ts                 # registrazione utente → chiama backend
+│   │   ├── lookup.ts               # dati statici (es. fetchRoles)
+│   │   └── *.ts                    # un file per dominio (users, orders, ...)
 │   ├── auth/
-│   │   └── keycloak.ts            # singleton keycloak-js
+│   │   └── keycloak.ts             # singleton keycloak-js
 │   └── stores/
-│       └── authStore.ts           # Svelte writable store
+│       └── authStore.ts            # Svelte writable store per stato auth
 └── routes/
-    ├── +layout.ts                 # ssr = false
-    ├── +layout.svelte             # navbar + auth guard
-    ├── +page.svelte               # homepage pubblica
-    ├── register/+page.svelte
-    ├── login/+page.svelte
-    ├── pending/+page.svelte
-    ├── dashboard/+page.svelte     # ruolo USER
+    ├── +layout.ts                  # ssr = false (globale)
+    ├── +layout.svelte              # navbar + auth guard globale
+    ├── +page.svelte                # homepage pubblica
+    ├── login/+page.svelte          # trigger keycloak redirect + post-login routing
+    ├── register/+page.svelte       # form registrazione → chiama backend
+    ├── pending/+page.svelte        # account in attesa di approvazione
+    ├── dashboard/+page.svelte      # protetta: ruolo USER
     └── admin/
-        ├── +page.svelte           # ruolo ADMIN — pending registrations
-        └── users/+page.svelte     # ruolo ADMIN — gestione utenti
+        └── +page.svelte            # protetta: ruolo ADMIN
 ```
 
 ---
 
-## config.ts
+## config.ts — configurazione centralizzata
+
+Strategia a tre livelli (priorità decrescente):
+1. **Runtime**: `window.__APP_CONFIG__` — iniettato da un file `/config.js` generato a container startup. Permette di cambiare URL senza rebuilding dell'immagine Docker.
+2. **Build-time**: `import.meta.env.VITE_*` — da file `.env` (sviluppo locale).
+3. **Fallback hardcoded**: valori di default per sviluppo.
 
 ```ts
-export const config = {
-  backend:  { url: import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:8081' },
-  keycloak: {
-    url:      import.meta.env.VITE_KEYCLOAK_URL      ?? 'http://localhost:8080',
-    realm:    import.meta.env.VITE_KEYCLOAK_REALM    ?? 'my-realm',
-    clientId: import.meta.env.VITE_KEYCLOAK_CLIENT_ID ?? 'my-client',
-  },
-} as const;
+// src/lib/config.ts
+declare global {
+  interface Window {
+    __APP_CONFIG__?: {
+      backendUrl:       string;
+      keycloakUrl:      string;
+      keycloakRealm:    string;
+      keycloakClientId: string;
+    };
+  }
+}
+
+function getConfig() {
+  const runtime = typeof window !== 'undefined' ? window.__APP_CONFIG__ : undefined;
+
+  return {
+    backend: {
+      url: runtime?.backendUrl ?? import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:8081',
+    },
+    keycloak: {
+      url:      runtime?.keycloakUrl      ?? import.meta.env.VITE_KEYCLOAK_URL      ?? 'http://localhost:8080',
+      realm:    runtime?.keycloakRealm    ?? import.meta.env.VITE_KEYCLOAK_REALM    ?? 'my-realm',
+      clientId: runtime?.keycloakClientId ?? import.meta.env.VITE_KEYCLOAK_CLIENT_ID ?? 'my-client',
+    },
+  } as const;
+}
+
+export const config = getConfig();
 ```
 
-**.env**
+**`.env` (sviluppo locale — non committare)**
 ```
 VITE_BACKEND_URL=http://localhost:8081
 VITE_KEYCLOAK_URL=http://localhost:8080
@@ -85,27 +129,60 @@ VITE_KEYCLOAK_REALM=my-realm
 VITE_KEYCLOAK_CLIENT_ID=my-client
 ```
 
+**`entrypoint.sh` (container Docker)**
+```bash
+#!/bin/sh
+# Genera /config.js a runtime leggendo le env var del container
+cat > /usr/share/nginx/html/config.js <<EOF
+window.__APP_CONFIG__ = {
+  backendUrl:       "${BACKEND_URL}",
+  keycloakUrl:      "${KEYCLOAK_URL}",
+  keycloakRealm:    "${KEYCLOAK_REALM}",
+  keycloakClientId: "${KEYCLOAK_CLIENT_ID}"
+};
+EOF
+exec nginx -g 'daemon off;'
+```
+
+**`app.html`** — includere prima del bundle:
+```html
+<script src="/config.js"></script>
+```
+
 ---
 
 ## apiFetch — wrapper HTTP generico
 
+Un unico punto di uscita verso il backend. Gestisce header `Authorization`, body JSON e status code.
+
 ```ts
 // src/lib/api/api.ts
 import { keycloak } from '$lib/auth/keycloak';
+import { config }   from '$lib/config';
 
-const BASE_URL = `${config.backend.url}/api/v1/my-app`;
+type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+
+const BASE_URL = `${config.backend.url}/api/v1`;
 
 export async function apiFetch<TResponse = void, TBody = unknown>(
   path: string,
-  options: { method?: HttpMethod; body?: TBody; headers?: Record<string,string>; auth?: boolean } = {}
+  options: {
+    method?:  HttpMethod;
+    body?:    TBody;
+    headers?: Record<string, string>;
+    auth?:    boolean;
+  } = {}
 ): Promise<TResponse> {
   const { method = 'GET', body, headers = {}, auth = false } = options;
 
-  const reqHeaders: Record<string, string> = { 'Content-Type': 'application/json', ...headers };
+  const reqHeaders: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...headers,
+  };
 
   if (auth) {
-    // Legge keycloak.token (aggiornato automaticamente dopo ogni refresh)
-    // con fallback a sessionStorage
+    // Leggere keycloak.token (sempre aggiornato dopo ogni refresh automatico)
+    // con fallback a sessionStorage per la prima richiesta dopo F5
     const token = keycloak.token ?? sessionStorage.getItem('access_token');
     if (token) reqHeaders['Authorization'] = `Bearer ${token}`;
   }
@@ -116,11 +193,13 @@ export async function apiFetch<TResponse = void, TBody = unknown>(
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
 
-  if (!res.ok) await throwApiError(res);
+  if (!res.ok) await throwApiError(res);     // lancia Error con messaggio dal body
   if (res.status === 204) return undefined as TResponse;
   return res.json() as Promise<TResponse>;
 }
 ```
+
+> **Regola**: leggere sempre `keycloak.token` (live), non `sessionStorage.getItem('access_token')` come fonte primaria. Il valore in sessionStorage può essere scaduto se il refresh è avvenuto a runtime.
 
 ---
 
@@ -129,10 +208,12 @@ export async function apiFetch<TResponse = void, TBody = unknown>(
 ```ts
 // src/lib/auth/keycloak.ts
 import Keycloak from 'keycloak-js';
+import { config }    from '$lib/config';
+import { authStore } from '$lib/stores/authStore';
 
 export const keycloak = new Keycloak({
-  url: config.keycloak.url,
-  realm: config.keycloak.realm,
+  url:      config.keycloak.url,
+  realm:    config.keycloak.realm,
   clientId: config.keycloak.clientId,
 });
 
@@ -149,8 +230,8 @@ export function initKeycloak(): Promise<boolean> {
   const storedRefreshToken = sessionStorage.getItem(REFRESH_TOKEN_KEY) ?? undefined;
 
   if (storedRefreshToken) {
-    // Refresh token presente → keycloak-js ripristina la sessione automaticamente.
-    // Se l'access token è scaduto lo refresha con il refresh token.
+    // Refresh token presente → keycloak-js ripristina la sessione.
+    // Se l'access token è scaduto lo refresha automaticamente.
     // Se anche il refresh token è scaduto → clearTokens() + return false.
     initPromise = keycloak
       .init({ pkceMethod: 'S256', checkLoginIframe: false, token: storedToken, refreshToken: storedRefreshToken })
@@ -161,7 +242,7 @@ export function initKeycloak(): Promise<boolean> {
       })
       .catch(() => { clearTokens(); return false; });
   } else {
-    // Nessun refresh token → init passivo (zero redirect automatici)
+    // Nessun token → init passivo, zero redirect automatici
     initPromise = keycloak
       .init({ pkceMethod: 'S256', checkLoginIframe: false })
       .then(authenticated => {
@@ -178,17 +259,17 @@ export function login(redirectUri?: string): void {
 }
 
 export function logout(): void {
-  sessionStorage.removeItem(TOKEN_KEY);
-  sessionStorage.removeItem(REFRESH_TOKEN_KEY);
+  clearTokens();
   authStore.clear();
   keycloak.logout({ redirectUri: window.location.origin });
 }
 
-// Ruoli sempre UPPERCASE per consistenza con @RolesAllowed backend
+/** Ruoli realm sempre UPPERCASE — consistenza con @RolesAllowed backend */
 export function getRoles(): string[] {
   return (keycloak.tokenParsed?.realm_access?.roles ?? []).map(r => r.toUpperCase());
 }
 
+/** Route di destinazione post-login in base al ruolo */
 export function getPostLoginRoute(): string {
   const roles = getRoles();
   if (roles.includes('ADMIN')) return '/admin';
@@ -196,27 +277,51 @@ export function getPostLoginRoute(): string {
   return '/pending';
 }
 
+function persistTokens(): void {
+  if (keycloak.token)        sessionStorage.setItem(TOKEN_KEY,         keycloak.token);
+  if (keycloak.refreshToken) sessionStorage.setItem(REFRESH_TOKEN_KEY, keycloak.refreshToken);
+}
+
+function clearTokens(): void {
+  sessionStorage.removeItem(TOKEN_KEY);
+  sessionStorage.removeItem(REFRESH_TOKEN_KEY);
+}
+
 function setupTokenRefresh(): void {
-  // Mid-session: refresh automatico quando il token sta per scadere
   keycloak.onTokenExpired = async () => {
     try {
       const refreshed = await keycloak.updateToken(30);
       if (refreshed) persistTokens();
     } catch {
-      logout(); // refresh token scaduto
+      logout(); // refresh token scaduto → forza logout
     }
   };
   keycloak.onAuthLogout = () => {
-    sessionStorage.removeItem(TOKEN_KEY);
-    sessionStorage.removeItem(REFRESH_TOKEN_KEY);
+    clearTokens();
     authStore.clear();
   };
 }
+
+function syncStore(): void {
+  const p = keycloak.tokenParsed;
+  if (!p) return;
+  authStore.set({
+    isAuthenticated: true,
+    isLoading:       false,
+    user: {
+      username:  p['preferred_username'] ?? '',
+      email:     p['email']              ?? '',
+      firstName: p['given_name']         ?? '',
+      lastName:  p['family_name']        ?? '',
+      roles:     getRoles(),
+    },
+  });
+}
 ```
 
-**Perché `checkLoginIframe: false`**: i browser moderni bloccano i cookie di terze parti usati dall'iframe di Keycloak.
+**Perché `checkLoginIframe: false`** — i browser moderni bloccano i cookie di terze parti usati dall'iframe di Keycloak per il silent SSO check.
 
-**Perché `initPromise`**: layout e pagina chiamano entrambi `initKeycloak()`. Senza la Promise condivisa, il secondo a chiamarla riceverebbe `keycloak.authenticated = undefined` (init non ancora completato) e tornerebbe `false`.
+**Perché `initPromise`** — layout e pagina chiamano entrambi `initKeycloak()` all'`onMount`. Senza Promise condivisa, il secondo invocante riceverebbe `keycloak.authenticated = undefined` e tornerebbe `false`.
 
 ---
 
@@ -226,15 +331,24 @@ function setupTokenRefresh(): void {
 import { writable } from 'svelte/store';
 
 export interface AuthUser {
-  username: string; email: string; firstName: string; lastName: string; roles: string[];
+  username: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  roles: string[];
 }
+
 export interface AuthState {
-  isAuthenticated: boolean; isLoading: boolean; user: AuthUser | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  user: AuthUser | null;
 }
 
 function createAuthStore() {
   const { subscribe, set, update } = writable<AuthState>({
-    isAuthenticated: false, isLoading: true, user: null,
+    isAuthenticated: false,
+    isLoading: true,
+    user: null,
   });
   return {
     subscribe,
@@ -243,12 +357,13 @@ function createAuthStore() {
     setUnauthenticated: () => update(s => ({ ...s, isLoading: false })),
   };
 }
+
 export const authStore = createAuthStore();
 ```
 
 ---
 
-## +layout.svelte — auth guard + navbar dinamica
+## +layout.svelte — auth guard globale + navbar
 
 ```svelte
 <script lang="ts">
@@ -260,14 +375,17 @@ export const authStore = createAuthStore();
   const PUBLIC_ROUTES = ['/', '/login', '/register', '/pending'];
   let currentPath = '/';
 
-  afterNavigate(({ to }) => { currentPath = to?.url.pathname ?? window.location.pathname; });
+  // afterNavigate aggiorna currentPath ad ogni navigazione SPA
+  afterNavigate(({ to }) => {
+    currentPath = to?.url.pathname ?? window.location.pathname;
+  });
 
   onMount(async () => {
     currentPath = window.location.pathname;
     const isPublic = PUBLIC_ROUTES.some(r => currentPath === r);
 
-    // Init sempre (anche su route pubbliche) per risolvere isLoading
-    // e mostrare i bottoni Accedi/Registrati
+    // initKeycloak() va chiamato ANCHE sulle route pubbliche —
+    // altrimenti authStore.isLoading resta true e la navbar non mostra mai i bottoni.
     const authenticated = await initKeycloak();
 
     if (!authenticated) {
@@ -278,31 +396,38 @@ export const authStore = createAuthStore();
 </script>
 ```
 
-**Pattern chiave**: `initKeycloak()` viene chiamato su TUTTE le route (anche pubbliche) perché se non viene chiamato, `authStore.isLoading` resta `true` e i bottoni Accedi/Registrati non appaiono mai.
-
 ---
 
 ## login/+page.svelte — post-login redirect
 
 ```svelte
-onMount(async () => {
-  try {
-    const authenticated = await initKeycloak();
-    if (authenticated) {
-      goto(getPostLoginRoute(), { replaceState: true }); // → /admin o /dashboard
-      return;
-    }
-    authStore.setUnauthenticated();
-  } catch (e) {
-    authStore.setUnauthenticated();
-  } finally {
-    checking = false;
-  }
-});
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
+  import { initKeycloak, login, getPostLoginRoute } from '$lib/auth/keycloak';
+  import { authStore } from '$lib/stores/authStore';
 
-// Bottone login — redirect URI = /login per gestire il codice OAuth qui
+  let checking = true;
+
+  onMount(async () => {
+    try {
+      const authenticated = await initKeycloak();
+      if (authenticated) {
+        goto(getPostLoginRoute(), { replaceState: true });
+        return;
+      }
+      authStore.setUnauthenticated();
+    } catch {
+      authStore.setUnauthenticated();
+    } finally {
+      checking = false;
+    }
+  });
+</script>
+
+<!-- redirectUri = /login per ricevere il codice OAuth su questa pagina -->
 <button on:click={() => login(`${window.location.origin}/login`)}>
-  Accedi con Keycloak
+  Accedi
 </button>
 ```
 
@@ -310,38 +435,84 @@ onMount(async () => {
 
 ## Protezione route (guard pattern)
 
-Ogni pagina protetta:
+Ogni pagina protetta esegue questo pattern in `onMount`:
 
 ```svelte
-onMount(async () => {
-  await initKeycloak();
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
+  import { initKeycloak, getRoles } from '$lib/auth/keycloak';
 
-  if (!getRoles().includes('ADMIN')) {
-    goto('/', { replaceState: true });
-    return;
-  }
+  onMount(async () => {
+    await initKeycloak();
 
-  // carica dati...
-});
+    if (!getRoles().includes('ADMIN')) {
+      goto('/', { replaceState: true });
+      return;
+    }
+
+    // carica dati specifici della pagina...
+  });
+</script>
 ```
 
 ---
 
-## Paginazione — pattern riutilizzabile
+## Self-action protection — admin non può agire su se stesso
+
+Nelle pagine di gestione utenti, l'admin loggato vede la propria card ma non può eseguire azioni su se stesso.  
+Usare `keycloak.subject` (claim `sub` del JWT) come identificatore dell'utente corrente.
+
+```svelte
+<script lang="ts">
+  import { keycloak } from '$lib/auth/keycloak';
+
+  let currentUserId = '';
+
+  onMount(async () => {
+    await initKeycloak();
+    currentUserId = keycloak.subject ?? '';
+    // ...
+  });
+</script>
+
+{#each users as user (user.id)}
+  {@const isCurrentUser = user.id === currentUserId}
+
+  <!-- Badge visivo -->
+  {#if isCurrentUser}
+    <span>Tu</span>
+  {/if}
+
+  <!-- Tutti i bottoni di azione disabilitati -->
+  <button
+    disabled={isCurrentUser}
+    title={isCurrentUser ? 'Non puoi modificare il tuo account' : undefined}
+  >
+    Cambia ruoli
+  </button>
+{/each}
+```
+
+> **Regola**: il confronto va fatto su `user.id === keycloak.subject` (UUID Keycloak), non su username o email che potrebbero non essere univoci o potrebbero cambiare.
+
+---
+
+## Paginazione — interfacce riutilizzabili
 
 ```ts
-// Interfaccia generica per tutte le risposte paginate
+// Risposta generica paginata dal backend
 export interface PagedResult<T> {
   list:       T[];
   totalRows:  number;
   totalPages: number;
   pageSize:   number;
-  page:       number;  // 1-based (backend si aspetta page >= 1)
+  page:       number;  // 1-based
 }
 
-// Query params con sort e descending
+// Parametri di query paginata
 export interface SearchParams {
-  page?:       number;  // min 1
+  page?:       number;  // minimo 1
   size?:       number;
   sort?:       string;
   descending?: boolean;
@@ -357,25 +528,27 @@ function buildQuery(params: SearchParams): string {
 }
 ```
 
+> **Attenzione**: Quarkus usa `@Min(1)` sul parametro `page` — il FE non deve mai inviare `page=0`.
+
 ---
 
-## Keycloak — configurazione client
+## Keycloak — configurazione client (Admin Console)
 
 | Campo | Valore |
 |---|---|
 | Client type | OpenID Connect |
-| Client authentication | OFF (public client) |
+| Client authentication | **OFF** (public client — niente secret) |
 | Standard flow | ON |
 | Direct access grants | OFF |
-| Valid redirect URIs | `http://localhost:5173/*` |
-| Web origins | `http://localhost:5173` |
-| Realm roles | `ADMIN`, `USER`, `PENDING` (UPPERCASE) |
+| Valid redirect URIs | `http://localhost:5173/*` (+ URL produzione) |
+| Web origins | `http://localhost:5173` (+ URL produzione) |
+| Realm roles | UPPERCASE (es. `ADMIN`, `USER`, `PENDING`) |
 
-**Importante**: i ruoli Keycloak devono essere UPPERCASE per matchare `@RolesAllowed` di Quarkus e i check lato FE.
+**Mapper ruoli**: aggiungere un mapper di tipo "User Realm Role" sull'ID token e sull'access token, con token claim name `realm_access.roles`.
 
 ---
 
-## Quarkus — configurazione OIDC
+## Backend Quarkus — configurazione OIDC
 
 ```properties
 quarkus.oidc.auth-server-url=http://localhost:8080/realms/my-realm
@@ -386,40 +559,44 @@ quarkus.oidc.roles.role-claim-path=realm_access/roles
 
 ---
 
-## Pattern API admin con DTO Java
+## DTO — pattern di interfacce TypeScript
+
+Le interfacce TS devono replicare esattamente i campi del DTO Java (no campi extra, no rinomina).
 
 ```ts
-// FE replica esattamente i campi del DTO Java (no campo in più)
-
-// SimpleKeycloakUserDTO
+// Corrisponde a SimpleKeycloakUserDTO.java
 interface UserDTO {
-  id:        string;
+  id:        string;        // UUID Keycloak (keycloak.subject)
   username:  string;
   firstName: string;
   lastName:  string;
   enabled:   boolean;
-  roles:     SimpleRoleType[];   // { id: string; label: string }
+  roles:     RoleDTO[];
 }
 
-// ApprovedInDTO (body approve)
-approveRegistration(userId, roleIds) →
-  POST /admin-managment/{id}/approve
-  body: { approvedRoles: string[] }   // ← nome campo dal DTO Java
+interface RoleDTO {
+  id:    string;
+  label: string;
+}
+
+// Corpo richiesta approvazione — campo dal DTO Java, non array diretto
+POST /admin/users/{id}/approve
+body: { approvedRoles: string[] }  // ← nome campo esatto del DTO Java
 ```
 
 ---
 
 ## Gotcha & lezioni imparate
 
-| Problema | Soluzione |
-|---|---|
-| Bottoni navbar non appaiono | `initKeycloak()` va chiamato anche sulle route pubbliche |
-| Race condition layout/pagina | Usare `initPromise` condivisa invece di flag booleano |
-| `checkLoginIframe: false` | Browser bloccano i cookie 3p usati dall'iframe Keycloak |
-| Ruoli case mismatch | Normalizzare sempre a UPPERCASE in `getRoles()` |
-| F5 perde la sessione | Passare `token` e `refreshToken` da sessionStorage a `keycloak.init()` |
-| 403 Forbidden | Verificare che i ruoli Keycloak matchino `@RolesAllowed` (case sensitive) |
-| `apiFetch` manda token scaduto | Leggere `keycloak.token` (live) invece di sessionStorage |
-| `page` 0-based vs 1-based | Quarkus `@Min(1)` → il FE parte sempre da `page=1` |
-| Body array vs oggetto | `approveRegistration` invia `{ approvedRoles: [] }` non `[]` direttamente |
-| `$app/stores` deprecato | Usare `afterNavigate` per tracciare il path corrente |
+| Problema | Causa | Soluzione |
+|---|---|---|
+| Bottoni navbar non appaiono su route pubbliche | `authStore.isLoading` resta `true` | Chiamare `initKeycloak()` anche sulle route pubbliche |
+| Race condition layout/pagina | Doppio `init()` su keycloak-js | Usare `initPromise` condivisa (singleton pattern) |
+| Sessione persa al F5 | `keycloak.init()` senza token | Passare `token` + `refreshToken` da sessionStorage a `init()` |
+| `checkLoginIframe` causa errori | Browser blocca cookie 3p | Impostare sempre `checkLoginIframe: false` |
+| 403 Forbidden dal backend | Case mismatch sui ruoli | Normalizzare a UPPERCASE in `getRoles()`; backend usa `@RolesAllowed("ADMIN")` |
+| `apiFetch` manda token scaduto | Lettura da sessionStorage (stale) | Leggere `keycloak.token` (live) come fonte primaria |
+| `page=0` → 400 Bad Request | Backend `@Min(1)` | Il FE parte sempre da `page=1`, non `page=0` |
+| Body array → 400 Bad Request | Backend si aspetta oggetto | Wrappare array in oggetto: `{ approvedRoles: ids }` non `ids` |
+| `$app/stores` deprecato in SvelteKit 2 | API rimossa | Usare `afterNavigate` per tracciare il path corrente |
+| Admin si auto-disabilita/elimina | Nessuna protezione | Confrontare `user.id === keycloak.subject` e disabilitare i bottoni |

@@ -112,9 +112,9 @@
           </a>
         {/each}
       {:else if isHomepage}
-        <a href="#features" class="text-sm font-medium text-slate-400 hover:text-slate-100 transition-colors duration-200">Funzionalità</a>
-        <a href="#stats"    class="text-sm font-medium text-slate-400 hover:text-slate-100 transition-colors duration-200">Numeri</a>
-        <a href="#about"    class="text-sm font-medium text-slate-400 hover:text-slate-100 transition-colors duration-200">Chi siamo</a>
+        <a href="#ecosystem" class="text-sm font-medium text-slate-400 hover:text-slate-100 transition-colors duration-200">La piattaforma</a>
+        <a href="#features"  class="text-sm font-medium text-slate-400 hover:text-slate-100 transition-colors duration-200">Funzionalità</a>
+        <a href="#about"     class="text-sm font-medium text-slate-400 hover:text-slate-100 transition-colors duration-200">Infrastruttura</a>
       {/if}
     </nav>
 
