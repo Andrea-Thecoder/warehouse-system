@@ -25,6 +25,12 @@
 
     <!-- CTAs -->
     <div class="flex justify-center gap-4 flex-wrap mb-20">
+     <a href="#features"
+         class="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-semibold text-slate-400
+                border border-white/10 bg-white/3 hover:text-slate-100 hover:border-white/20 hover:bg-white/7
+                transition-all duration-200">
+        Funzionalità del modulo
+      </a>
       <a href="#ecosystem"
          class="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-semibold text-white bg-blue-500
                 hover:bg-blue-600 hover:shadow-[0_0_30px_rgba(59,130,246,0.35)] hover:-translate-y-px transition-all duration-200">
@@ -33,60 +39,10 @@
           <path d="M8 3v10M3 8l5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </a>
-      <a href="#features"
-         class="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-semibold text-slate-400
-                border border-white/10 bg-white/3 hover:text-slate-100 hover:border-white/20 hover:bg-white/7
-                transition-all duration-200">
-        Funzionalità del modulo
-      </a>
+    
     </div>
-
-    <!-- Admin console mockup -->
-    <div class="max-w-2xl mx-auto rounded-2xl border border-white/10 bg-surface overflow-hidden shadow-2xl text-left" role="img" aria-label="Anteprima console amministrazione">
-      <!-- Bar -->
-      <div class="flex items-center gap-2 px-4 py-3 bg-surface-2 border-b border-white/8">
-        <span class="w-3 h-3 rounded-full bg-[#ff5f57]"></span>
-        <span class="w-3 h-3 rounded-full bg-[#febc2e]"></span>
-        <span class="w-3 h-3 rounded-full bg-[#28c840]"></span>
-        <span class="flex-1 text-center text-xs text-slate-600 font-mono">warehouse-system — amministrazione</span>
-      </div>
-      <!-- Body -->
-      <div class="p-6 flex flex-col gap-3 font-mono text-sm">
-        <div class="flex items-center gap-3">
-          <span class="text-slate-600">●</span>
-          <span class="text-slate-400 flex-1">Utenti in attesa di approvazione</span>
-          <span class="text-slate-100 font-semibold">5</span>
-          <span class="text-xs px-2 py-0.5 rounded-full bg-yellow-500/15 text-yellow-400 font-semibold">in coda</span>
-        </div>
-        <div class="flex items-center gap-3">
-          <span class="text-slate-600">●</span>
-          <span class="text-slate-400 flex-1">Utenti attivi nel sistema</span>
-          <span class="text-slate-100 font-semibold">38</span>
-          <span class="text-xs px-2 py-0.5 rounded-full bg-green-500/15 text-green-400 font-semibold">online</span>
-        </div>
-        <div class="flex items-center gap-3">
-          <span class="text-slate-600">●</span>
-          <span class="text-slate-400 flex-1">Sessioni autenticate oggi</span>
-          <span class="text-slate-100 font-semibold">124</span>
-          <span class="text-xs px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-400 font-semibold">OIDC</span>
-        </div>
-        <div class="flex items-center gap-3">
-          <span class="text-slate-600">●</span>
-          <span class="text-slate-400 flex-1">Account disabilitati</span>
-          <span class="text-slate-100 font-semibold">2</span>
-          <span class="text-xs px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 font-semibold">in revisione</span>
-        </div>
-        <div class="h-px bg-white/8 my-1"></div>
-        <div class="flex items-center gap-3 text-slate-600 text-xs">
-          <span>Keycloak SSO operativo — ultimo sync 1 min fa</span>
-          <span class="ml-auto text-xs px-2 py-0.5 rounded-full bg-green-500/15 text-green-400 font-semibold">● online</span>
-        </div>
-      </div>
-    </div>
-
   </div>
 </section>
-
 <!-- ── Ecosystem ───────────────────────────────────────────────────────────── -->
 <section class="py-28" id="ecosystem">
   <div class="max-w-6xl mx-auto px-8">
