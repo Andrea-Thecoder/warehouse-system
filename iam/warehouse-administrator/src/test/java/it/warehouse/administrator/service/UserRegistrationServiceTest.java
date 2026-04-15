@@ -26,7 +26,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-class UserServiceTest {
+class UserRegistrationServiceTest {
 
     @Mock
     private Database db;
@@ -36,7 +36,7 @@ class UserServiceTest {
     private LookupService lookupService;
 
     @InjectMocks
-    private UserService userService;
+    private UserRegistrationService userRegistrationService;
 
     // -------------------------------------------------------------------------
     // register
@@ -51,10 +51,10 @@ class UserServiceTest {
         when(keycloakService.createUserAccount(dto)).thenReturn("kc-user-id");
 
         try (MockedConstruction<UserRegistration> mocked = mockConstruction(UserRegistration.class)) {
-            userService.register(dto);
+            userRegistrationService.registerUser(dto);
 
             assertThat(mocked.constructed()).hasSize(1);
-            UserRegistration created = mocked.constructed().get(0);
+            UserRegistration created = mocked.constructed().getFirst();
             verify(created).setFullname("Mario Rossi");
             verify(created).setStatus(RegistrationStatus.PENDING);
             verify(created).insert(tx);
@@ -73,7 +73,7 @@ class UserServiceTest {
         when(keycloakService.createUserAccount(dto)).thenReturn("  "); // blank
 
         try (MockedConstruction<UserRegistration> ignored = mockConstruction(UserRegistration.class)) {
-            assertThatThrownBy(() -> userService.register(dto))
+            assertThatThrownBy(() -> userRegistrationService.registerUser(dto))
                     .isInstanceOf(ServiceException.class)
                     .hasMessageContaining("Error while creating the user");
         }
@@ -88,14 +88,10 @@ class UserServiceTest {
         when(keycloakService.createUserAccount(dto)).thenThrow(new RuntimeException("Keycloak down"));
 
         try (MockedConstruction<UserRegistration> ignored = mockConstruction(UserRegistration.class)) {
-            assertThatThrownBy(() -> userService.register(dto))
+            assertThatThrownBy(() -> userRegistrationService.registerUser(dto))
                     .isInstanceOf(ServiceException.class);
         }
     }
-
-    // -------------------------------------------------------------------------
-    // updateRegistrationRequest
-    // -------------------------------------------------------------------------
 
     @Test
     void updateRegistrationRequest_setsStatusAndCommitsTransaction() {
@@ -103,7 +99,7 @@ class UserServiceTest {
         Transaction tx = mock(Transaction.class);
         when(db.beginTransaction()).thenReturn(tx);
 
-        userService.updateRegistrationRequest(reg, RegistrationStatus.APPROVED);
+        userRegistrationService.updateRegistrationRequest(reg, RegistrationStatus.APPROVED);
 
         verify(reg).setStatus(RegistrationStatus.APPROVED);
         verify(reg).update(tx);
@@ -117,14 +113,10 @@ class UserServiceTest {
         when(db.beginTransaction()).thenReturn(tx);
         doThrow(new RuntimeException("DB unavailable")).when(reg).update(tx);
 
-        assertThatThrownBy(() -> userService.updateRegistrationRequest(reg, RegistrationStatus.REJECTED))
+        assertThatThrownBy(() -> userRegistrationService.updateRegistrationRequest(reg, RegistrationStatus.REJECTED))
                 .isInstanceOf(ServiceException.class)
                 .hasMessageContaining("Error while updating the user");
     }
-
-    // -------------------------------------------------------------------------
-    // getRegistrationPendingOrThrow
-    // -------------------------------------------------------------------------
 
     @Test
     void getRegistrationPendingOrThrow_found_returnsEntity() {
@@ -132,7 +124,7 @@ class UserServiceTest {
         UserRegistration expected = mock(UserRegistration.class);
         stubQueryChain(id, Optional.of(expected));
 
-        UserRegistration result = userService.getRegistrationPendingOrThrow(id);
+        UserRegistration result = userRegistrationService.getRegistrationPendingOrThrow(id);
 
         assertThat(result).isSameAs(expected);
     }
@@ -142,14 +134,10 @@ class UserServiceTest {
         UUID id = UUID.randomUUID();
         stubQueryChain(id, Optional.empty());
 
-        assertThatThrownBy(() -> userService.getRegistrationPendingOrThrow(id))
+        assertThatThrownBy(() -> userRegistrationService.getRegistrationPendingOrThrow(id))
                 .isInstanceOf(NotFoundException.class)
                 .hasMessageContaining(id.toString());
     }
-
-    // -------------------------------------------------------------------------
-    // helpers
-    // -------------------------------------------------------------------------
 
     @SuppressWarnings("unchecked")
     private void stubQueryChain(UUID id, Optional<UserRegistration> result) {

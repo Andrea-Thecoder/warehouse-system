@@ -4,8 +4,10 @@ import io.quarkus.security.UnauthorizedException;
 import it.warehouse.administrator.client.KeycloakTokenClient;
 import it.warehouse.administrator.dto.LoginRequestDTO;
 import it.warehouse.administrator.dto.RefreshTokenRequestDTO;
+import it.warehouse.administrator.dto.RegisterRequestDTO;
 import it.warehouse.administrator.dto.TokenResponseDTO;
 import it.warehouse.administrator.exception.ServiceException;
+import it.warehouse.administrator.model.UserRegistration;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.WebApplicationException;
@@ -22,6 +24,9 @@ public class AuthService {
     @RestClient
     KeycloakTokenClient tokenClient;
 
+    @Inject
+    UserRegistrationService userRegistrationService;
+
     @ConfigProperty(name = "quarkus.keycloak.admin-client.realm")
     String realm;
 
@@ -31,51 +36,9 @@ public class AuthService {
     @ConfigProperty(name = "quarkus.keycloak.admin-client.client-secret")
     String clientSecret;
 
-    public TokenResponseDTO login(LoginRequestDTO dto) {
-        log.info("Tentativo di login per l'utente: {}", dto.getUsername());
-        MultivaluedHashMap<String, String> form = new MultivaluedHashMap<>();
-        form.add("grant_type", "password");
-        form.add("client_id", clientId);
-        form.add("client_secret", clientSecret);
-        form.add("username", dto.getUsername());
-        form.add("password", dto.getPassword());
-
-        try {
-            return tokenClient.token(form);
-        } catch (WebApplicationException e) {
-            log.error("Login fallito per l'utente {}: status {}", dto.getUsername(), e.getResponse().getStatus());
-            throw new UnauthorizedException("Credenziali non valide");
-        }
+    public void register(RegisterRequestDTO dto){
+        userRegistrationService.registerUser(dto);
     }
 
-    public TokenResponseDTO refresh(RefreshTokenRequestDTO dto) {
-        log.debug("Richiesta refresh token");
-        MultivaluedHashMap<String, String> form = new MultivaluedHashMap<>();
-        form.add("grant_type", "refresh_token");
-        form.add("client_id", clientId);
-        form.add("client_secret", clientSecret);
-        form.add("refresh_token", dto.getRefreshToken());
 
-        try {
-            return tokenClient.token(form);
-        } catch (WebApplicationException e) {
-            log.error("Refresh token non valido: status {}", e.getResponse().getStatus());
-            throw new UnauthorizedException("Refresh token non valido o scaduto");
-        }
-    }
-
-    public void logout(RefreshTokenRequestDTO dto) {
-        log.info("Logout richiesto");
-        MultivaluedHashMap<String, String> form = new MultivaluedHashMap<>();
-        form.add("client_id", clientId);
-        form.add("client_secret", clientSecret);
-        form.add("refresh_token", dto.getRefreshToken());
-
-        try {
-            tokenClient.logout(form);
-        } catch (WebApplicationException e) {
-            log.error("Logout fallito: status {}", e.getResponse().getStatus());
-            throw new ServiceException("Logout non riuscito");
-        }
-    }
 }

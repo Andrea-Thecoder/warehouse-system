@@ -1,4 +1,4 @@
-package it.warehouse.administrator;
+package it.warehouse.administrator.migration;
 
 import io.ebean.annotation.Platform;
 import io.ebean.dbmigration.DbMigration;

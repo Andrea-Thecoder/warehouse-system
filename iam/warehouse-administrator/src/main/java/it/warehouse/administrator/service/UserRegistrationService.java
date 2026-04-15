@@ -21,7 +21,7 @@ import java.util.UUID;
 
 @ApplicationScoped
 @Slf4j
-public class UserService {
+public class UserRegistrationService {
 
     @Inject
     Database db;
@@ -37,15 +37,15 @@ public class UserService {
      * request in the DB with PENDING status.
      * Sensitive data (name, email, password) lives exclusively on Keycloak.
      */
-    public void register(RegisterRequestDTO dto) {
-        log.info("register: New user request for username: {}", dto.getUsername());
+    public void registerUser(RegisterRequestDTO dto) {
+        log.info("registerUser: New user request for username: {}", dto.getUsername());
 
         try (Transaction tx = db.beginTransaction()) {
             UserRegistration rr = createRegistrationRequest(dto,tx);
             rr.insert(tx);
             String userId = keycloakService.createUserAccount(dto);
             if(StringUtils.isBlank(userId)){
-                log.error("register: Error while creating new user");
+                log.error("registerUser: Error while creating new user");
                 throw new ServiceException("Error while creating the user. Try again later.");
             }
             rr.setKeycloakUserId(userId);

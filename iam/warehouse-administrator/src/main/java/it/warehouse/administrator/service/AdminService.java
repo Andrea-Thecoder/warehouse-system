@@ -1,9 +1,7 @@
 package it.warehouse.administrator.service;
 
 import io.ebean.Database;
-import io.quarkus.security.UnauthorizedException;
 import it.warehouse.administrator.dto.PagedResultDTO;
-import it.warehouse.administrator.dto.role.SimpleRoleTypeDTO;
 import it.warehouse.administrator.dto.search.BaseSearchRequest;
 import it.warehouse.administrator.dto.user.SimpleKeycloakUserDTO;
 import it.warehouse.administrator.dto.user.SimpleUserRegistrationDTO;
@@ -14,13 +12,10 @@ import it.warehouse.administrator.security.JwtService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
-import org.keycloak.admin.client.resource.UserResource;
 import org.keycloak.representations.idm.UserRepresentation;
 
 import java.util.*;
 import java.util.stream.Collectors;
-
-import static it.warehouse.administrator.service.LookupService.rolesMap;
 
 @ApplicationScoped
 @Slf4j
@@ -33,14 +28,14 @@ public class AdminService {
     KeycloakService keycloakService;
 
     @Inject
-    UserService userService;
+    UserRegistrationService userRegistrationService;
 
     @Inject
     Database db;
 
 
     public PagedResultDTO<SimpleUserRegistrationDTO> findUserRegistration(BaseSearchRequest request) {
-        return userService.findRegistrationRequest(request);
+        return userRegistrationService.findRegistrationRequest(request);
     }
 
     /**
@@ -69,14 +64,14 @@ public class AdminService {
      */
     public void handleApprove(UUID registrationId, Set<String> approvedRoles) {
         log.info("handleApprove: approve registrationId={}, approvedRoles={}", registrationId, approvedRoles);
-        UserRegistration userRegistration = userService.getRegistrationPendingOrThrow(registrationId);
+        UserRegistration userRegistration = userRegistrationService.getRegistrationPendingOrThrow(registrationId);
         Set<String> requestedRoles = userRegistration.getRequestedRoleType().stream().map(RoleType::getId).collect(Collectors.toSet());
         List<String> validRoles = approvedRoles.stream().filter(requestedRoles::contains).toList();
         RegistrationStatus status = validRoles.size() == requestedRoles.size()
                 ? RegistrationStatus.APPROVED
                 : RegistrationStatus.PARTIAL_APPROVED;
 
-        userService.updateRegistrationRequest(userRegistration, status);
+        userRegistrationService.updateRegistrationRequest(userRegistration, status);
         keycloakService.approveUser(userRegistration.getKeycloakUserId(), validRoles);
 
 
@@ -88,9 +83,9 @@ public class AdminService {
      */
     public void handleReject(UUID registrationId) {
         log.info("rejectUser: reject user with registrationId={}", registrationId);
-        UserRegistration userRegistration = userService.getRegistrationPendingOrThrow(registrationId);
+        UserRegistration userRegistration = userRegistrationService.getRegistrationPendingOrThrow(registrationId);
 
-        userService.updateRegistrationRequest(userRegistration, RegistrationStatus.REJECTED);
+        userRegistrationService.updateRegistrationRequest(userRegistration, RegistrationStatus.REJECTED);
         keycloakService.rejectUser(userRegistration.getKeycloakUserId());
 
         log.info("reject: Request {} rejected.", registrationId);

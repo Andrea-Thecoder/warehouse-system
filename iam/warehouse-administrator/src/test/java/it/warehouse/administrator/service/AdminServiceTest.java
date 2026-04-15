@@ -33,7 +33,7 @@ class AdminServiceTest {
     @Mock
     private KeycloakService keycloakService;
     @Mock
-    private UserService userService;
+    private UserRegistrationService userRegistrationService;
     @Mock
     private Database db;
 
@@ -50,11 +50,11 @@ class AdminServiceTest {
         UserRegistration reg = mock(UserRegistration.class);
         when(reg.getRequestedRoleType()).thenReturn(List.of(roleType("ADMIN"), roleType("WAREHOUSE_OPERATOR")));
         when(reg.getKeycloakUserId()).thenReturn("kc-123");
-        when(userService.getRegistrationPendingOrThrow(id)).thenReturn(reg);
+        when(userRegistrationService.getRegistrationPendingOrThrow(id)).thenReturn(reg);
 
         adminService.handleApprove(id, Set.of("ADMIN", "WAREHOUSE_OPERATOR"));
 
-        verify(userService).updateRegistrationRequest(reg, RegistrationStatus.APPROVED);
+        verify(userRegistrationService).updateRegistrationRequest(reg, RegistrationStatus.APPROVED);
         verify(keycloakService).approveUser(eq("kc-123"), argThat(roles -> roles.containsAll(List.of("ADMIN", "WAREHOUSE_OPERATOR"))));
     }
 
@@ -64,11 +64,11 @@ class AdminServiceTest {
         UserRegistration reg = mock(UserRegistration.class);
         when(reg.getRequestedRoleType()).thenReturn(List.of(roleType("ADMIN"), roleType("WAREHOUSE_OPERATOR")));
         when(reg.getKeycloakUserId()).thenReturn("kc-123");
-        when(userService.getRegistrationPendingOrThrow(id)).thenReturn(reg);
+        when(userRegistrationService.getRegistrationPendingOrThrow(id)).thenReturn(reg);
 
         adminService.handleApprove(id, Set.of("ADMIN")); // solo 1 dei 2 ruoli richiesti
 
-        verify(userService).updateRegistrationRequest(reg, RegistrationStatus.PARTIAL_APPROVED);
+        verify(userRegistrationService).updateRegistrationRequest(reg, RegistrationStatus.PARTIAL_APPROVED);
         verify(keycloakService).approveUser(eq("kc-123"), argThat(roles -> roles.size() == 1 && roles.contains("ADMIN")));
     }
 
@@ -78,12 +78,12 @@ class AdminServiceTest {
         UserRegistration reg = mock(UserRegistration.class);
         when(reg.getRequestedRoleType()).thenReturn(List.of(roleType("ADMIN"), roleType("WAREHOUSE_OPERATOR")));
         when(reg.getKeycloakUserId()).thenReturn("kc-123");
-        when(userService.getRegistrationPendingOrThrow(id)).thenReturn(reg);
+        when(userRegistrationService.getRegistrationPendingOrThrow(id)).thenReturn(reg);
 
         // ruolo approvato non fa parte di quelli richiesti → validRoles sarà vuoto
         adminService.handleApprove(id, Set.of("TRANSPORT_ADMIN"));
 
-        verify(userService).updateRegistrationRequest(reg, RegistrationStatus.PARTIAL_APPROVED);
+        verify(userRegistrationService).updateRegistrationRequest(reg, RegistrationStatus.PARTIAL_APPROVED);
         verify(keycloakService).approveUser(eq("kc-123"), argThat(List::isEmpty));
     }
 
@@ -96,11 +96,11 @@ class AdminServiceTest {
         UUID id = UUID.randomUUID();
         UserRegistration reg = mock(UserRegistration.class);
         when(reg.getKeycloakUserId()).thenReturn("kc-456");
-        when(userService.getRegistrationPendingOrThrow(id)).thenReturn(reg);
+        when(userRegistrationService.getRegistrationPendingOrThrow(id)).thenReturn(reg);
 
         adminService.handleReject(id);
 
-        verify(userService).updateRegistrationRequest(reg, RegistrationStatus.REJECTED);
+        verify(userRegistrationService).updateRegistrationRequest(reg, RegistrationStatus.REJECTED);
         verify(keycloakService).rejectUser("kc-456");
     }
 
@@ -151,7 +151,7 @@ class AdminServiceTest {
     void findUserRegistration_delegatesToUserService() {
         BaseSearchRequest req = new BaseSearchRequest();
         PagedResultDTO<SimpleUserRegistrationDTO> expected = new PagedResultDTO<>();
-        when(userService.findRegistrationRequest(req)).thenReturn(expected);
+        when(userRegistrationService.findRegistrationRequest(req)).thenReturn(expected);
 
         PagedResultDTO<SimpleUserRegistrationDTO> result = adminService.findUserRegistration(req);
 
