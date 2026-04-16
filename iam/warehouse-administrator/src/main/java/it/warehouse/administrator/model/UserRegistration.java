@@ -2,7 +2,9 @@ package it.warehouse.administrator.model;
 
 import it.warehouse.administrator.model.enumerator.RegistrationStatus;
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.util.ArrayList;
@@ -12,6 +14,8 @@ import java.util.UUID;
 @Getter
 @Setter
 @Entity
+@AllArgsConstructor
+@NoArgsConstructor
 @Table(name = "user_registration")
 public class UserRegistration extends AbstractAuditable {
 

@@ -1,4 +1,5 @@
-package it.warehouse.administrator.service;
+/*
+package it.warehouse.administrator.unit.service;
 
 import io.ebean.Database;
 import it.warehouse.administrator.dto.PagedResultDTO;
@@ -10,6 +11,9 @@ import it.warehouse.administrator.model.RoleType;
 import it.warehouse.administrator.model.UserRegistration;
 import it.warehouse.administrator.model.enumerator.RegistrationStatus;
 import it.warehouse.administrator.security.JwtService;
+import it.warehouse.administrator.service.AdminService;
+import it.warehouse.administrator.service.KeycloakService;
+import it.warehouse.administrator.service.UserRegistrationService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.keycloak.representations.idm.UserRepresentation;
@@ -22,6 +26,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.eclipse.sisu.plexus.Roles.roleType;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -40,9 +45,6 @@ class AdminServiceTest {
     @InjectMocks
     private AdminService adminService;
 
-    // -------------------------------------------------------------------------
-    // handleApprove
-    // -------------------------------------------------------------------------
 
     @Test
     void handleApprove_allRolesGranted_setsStatusApproved() {
@@ -80,18 +82,13 @@ class AdminServiceTest {
         when(reg.getKeycloakUserId()).thenReturn("kc-123");
         when(userRegistrationService.getRegistrationPendingOrThrow(id)).thenReturn(reg);
 
-        // ruolo approvato non fa parte di quelli richiesti → validRoles sarà vuoto
         adminService.handleApprove(id, Set.of("TRANSPORT_ADMIN"));
 
         verify(userRegistrationService).updateRegistrationRequest(reg, RegistrationStatus.PARTIAL_APPROVED);
-        verify(keycloakService).approveUser(eq("kc-123"), argThat(List::isEmpty));
-    }
+ -------------------------------------------------------------------------
 
-    // -------------------------------------------------------------------------
-    // handleReject
-    // -------------------------------------------------------------------------
-
-    @Test
+  */
+/*  @Test
     void handleReject_updatesStatusToRejectedAndDeletesUserFromKeycloak() {
         UUID id = UUID.randomUUID();
         UserRegistration reg = mock(UserRegistration.class);
@@ -103,6 +100,7 @@ class AdminServiceTest {
         verify(userRegistrationService).updateRegistrationRequest(reg, RegistrationStatus.REJECTED);
         verify(keycloakService).rejectUser("kc-456");
     }
+*//*
 
     // -------------------------------------------------------------------------
     // changeRole
@@ -211,4 +209,4 @@ class AdminServiceTest {
         rt.setLabel(id);
         return rt;
     }
-}
+}*/

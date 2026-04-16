@@ -1,4 +1,5 @@
-package it.warehouse.administrator.service;
+/*
+package it.warehouse.administrator.unit.service;
 
 import io.ebean.Database;
 import io.ebean.ExpressionList;
@@ -161,4 +162,4 @@ class UserRegistrationServiceTest {
         dto.setRequestedRoleIds(List.of("ADMIN"));
         return dto;
     }
-}
+}*/

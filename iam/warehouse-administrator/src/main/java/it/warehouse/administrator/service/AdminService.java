@@ -22,9 +22,6 @@ import java.util.stream.Collectors;
 public class AdminService {
 
     @Inject
-    JwtService jwtService;
-
-    @Inject
     KeycloakService keycloakService;
 
     @Inject

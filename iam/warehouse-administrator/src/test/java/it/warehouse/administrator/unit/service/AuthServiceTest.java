@@ -1,7 +1,9 @@
-package it.warehouse.administrator.service;
+package it.warehouse.administrator.unit.service;
 
 import it.warehouse.administrator.client.KeycloakTokenClient;
 import it.warehouse.administrator.dto.RegisterRequestDTO;
+import it.warehouse.administrator.service.AuthService;
+import it.warehouse.administrator.service.UserRegistrationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

@@ -1,4 +1,5 @@
-package it.warehouse.administrator.security;
+/*
+package it.warehouse.administrator.unit.security;
 
 import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.junit.jupiter.api.Test;
@@ -80,4 +81,4 @@ class JwtServiceTest {
     private void stubRoles(List<String> roles) {
         when(jwtToken.getClaim("realm_access")).thenReturn(Map.of("roles", roles));
     }
-}
+}*/

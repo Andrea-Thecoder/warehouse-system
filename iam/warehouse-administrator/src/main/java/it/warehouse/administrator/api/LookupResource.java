@@ -19,7 +19,7 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Tag(name = "LookupService", description = "LookupService lists: Roles")
-public class Lookup {
+public class LookupResource {
 
     @Inject
     LookupService  lookupService;
