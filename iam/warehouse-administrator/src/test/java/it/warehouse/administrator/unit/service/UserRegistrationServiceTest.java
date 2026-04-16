@@ -174,10 +174,6 @@ class UserRegistrationServiceTest {
         verify(transaction).close();
     }
 
-
-
-
-
     private void getQuery(UserRegistration fakeProfile) {
         Optional<UserRegistration> optional = fakeProfile == null ? Optional.empty() : Optional.of(fakeProfile);
         baseQuery();
