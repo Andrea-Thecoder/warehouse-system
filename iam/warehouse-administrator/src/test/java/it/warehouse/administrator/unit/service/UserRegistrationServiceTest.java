@@ -1,165 +1,196 @@
-/*
 package it.warehouse.administrator.unit.service;
 
-import io.ebean.Database;
-import io.ebean.ExpressionList;
-import io.ebean.Query;
-import io.ebean.Transaction;
+
+import io.ebean.*;
 import it.warehouse.administrator.dto.RegisterRequestDTO;
+import it.warehouse.administrator.dto.search.BaseSearchRequest;
 import it.warehouse.administrator.exception.ServiceException;
+import it.warehouse.administrator.model.RoleType;
 import it.warehouse.administrator.model.UserRegistration;
 import it.warehouse.administrator.model.enumerator.RegistrationStatus;
+import it.warehouse.administrator.service.KeycloakService;
+import it.warehouse.administrator.service.LookupService;
+import it.warehouse.administrator.service.UserRegistrationService;
 import jakarta.ws.rs.NotFoundException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedConstruction;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class UserRegistrationServiceTest {
 
-    @Mock
-    private Database db;
-    @Mock
-    private KeycloakService keycloakService;
-    @Mock
-    private LookupService lookupService;
-
     @InjectMocks
-    private UserRegistrationService userRegistrationService;
+    @Spy
+    UserRegistrationService userRegistrationService;
 
-    // -------------------------------------------------------------------------
-    // register
-    // -------------------------------------------------------------------------
+    @Mock
+    KeycloakService keycloakService;
 
-    @Test
-    void register_success_insertsEntityAndSetsKeycloakId() {
-        RegisterRequestDTO dto = buildRegisterDto();
-        Transaction tx = mock(Transaction.class);
-        when(db.beginTransaction()).thenReturn(tx);
-        when(lookupService.getRoleTypesForRegistration(dto.getRequestedRoleIds())).thenReturn(List.of());
-        when(keycloakService.createUserAccount(dto)).thenReturn("kc-user-id");
+    @Mock
+    LookupService lookupService;
 
-        try (MockedConstruction<UserRegistration> mocked = mockConstruction(UserRegistration.class)) {
-            userRegistrationService.registerUser(dto);
+    @Mock
+    Database db;
 
-            assertThat(mocked.constructed()).hasSize(1);
-            UserRegistration created = mocked.constructed().getFirst();
-            verify(created).setFullname("Mario Rossi");
-            verify(created).setStatus(RegistrationStatus.PENDING);
-            verify(created).insert(tx);
-            verify(created).setKeycloakUserId("kc-user-id");
-            verify(created).update(tx);
-            verify(tx).commit();
-        }
+    @Mock
+    Transaction transaction;
+
+    @Mock
+    Query<UserRegistration> query;
+
+    @Mock
+    ExpressionList<UserRegistration> expressionList;
+
+    @Mock
+    PagedList<UserRegistration> pagedList;
+
+    @BeforeEach
+    void setUp() {
+        lenient().when(db.beginTransaction()).thenReturn(transaction);
     }
 
     @Test
-    void register_keycloakReturnsBlankId_throwsServiceException() {
-        RegisterRequestDTO dto = buildRegisterDto();
-        Transaction tx = mock(Transaction.class);
-        when(db.beginTransaction()).thenReturn(tx);
-        when(lookupService.getRoleTypesForRegistration(any())).thenReturn(List.of());
-        when(keycloakService.createUserAccount(dto)).thenReturn("  "); // blank
+    @Order(1)
+    void findUserTest() {
+        BaseSearchRequest request = mock(BaseSearchRequest.class);
+        baseQuery();
+        when(expressionList.eq(anyString(), any(RegistrationStatus.class))).thenReturn(expressionList);
+        when(expressionList.findPagedList()).thenReturn(pagedList);
 
-        try (MockedConstruction<UserRegistration> ignored = mockConstruction(UserRegistration.class)) {
-            assertThatThrownBy(() -> userRegistrationService.registerUser(dto))
-                    .isInstanceOf(ServiceException.class)
-                    .hasMessageContaining("Error while creating the user");
-        }
+        var result = userRegistrationService.findRegistrationRequest(request);
+
+        assertNotNull(result);
+        assertNotNull(result.getList());
+        verify(request).pagination(any(ExpressionList.class), anyString());
+        verify(expressionList).findPagedList();
+
     }
 
     @Test
-    void register_keycloakThrowsException_throwsServiceException() {
-        RegisterRequestDTO dto = buildRegisterDto();
-        Transaction tx = mock(Transaction.class);
-        when(db.beginTransaction()).thenReturn(tx);
-        when(lookupService.getRoleTypesForRegistration(any())).thenReturn(List.of());
-        when(keycloakService.createUserAccount(dto)).thenThrow(new RuntimeException("Keycloak down"));
-
-        try (MockedConstruction<UserRegistration> ignored = mockConstruction(UserRegistration.class)) {
-            assertThatThrownBy(() -> userRegistrationService.registerUser(dto))
-                    .isInstanceOf(ServiceException.class);
-        }
-    }
-
-    @Test
-    void updateRegistrationRequest_setsStatusAndCommitsTransaction() {
-        UserRegistration reg = mock(UserRegistration.class);
-        Transaction tx = mock(Transaction.class);
-        when(db.beginTransaction()).thenReturn(tx);
-
-        userRegistrationService.updateRegistrationRequest(reg, RegistrationStatus.APPROVED);
-
-        verify(reg).setStatus(RegistrationStatus.APPROVED);
-        verify(reg).update(tx);
-        verify(tx).commit();
-    }
-
-    @Test
-    void updateRegistrationRequest_onDbException_throwsServiceException() {
-        UserRegistration reg = mock(UserRegistration.class);
-        Transaction tx = mock(Transaction.class);
-        when(db.beginTransaction()).thenReturn(tx);
-        doThrow(new RuntimeException("DB unavailable")).when(reg).update(tx);
-
-        assertThatThrownBy(() -> userRegistrationService.updateRegistrationRequest(reg, RegistrationStatus.REJECTED))
-                .isInstanceOf(ServiceException.class)
-                .hasMessageContaining("Error while updating the user");
-    }
-
-    @Test
-    void getRegistrationPendingOrThrow_found_returnsEntity() {
+    @Order(2)
+    void getUserTest() {
         UUID id = UUID.randomUUID();
-        UserRegistration expected = mock(UserRegistration.class);
-        stubQueryChain(id, Optional.of(expected));
+        UserRegistration fakeProfile = mock(UserRegistration.class);
+        getQuery(fakeProfile);
+        var result = userRegistrationService.getRegistrationPendingOrThrow(id);
 
-        UserRegistration result = userRegistrationService.getRegistrationPendingOrThrow(id);
-
-        assertThat(result).isSameAs(expected);
+        assertNotNull(result);
     }
 
     @Test
-    void getRegistrationPendingOrThrow_notFound_throwsNotFoundException() {
+    @Order(3)
+    void getUserThrowTest() {
         UUID id = UUID.randomUUID();
-        stubQueryChain(id, Optional.empty());
-
-        assertThatThrownBy(() -> userRegistrationService.getRegistrationPendingOrThrow(id))
-                .isInstanceOf(NotFoundException.class)
-                .hasMessageContaining(id.toString());
+        UserRegistration fakeProfile = mock(UserRegistration.class);
+        getQuery(null);
+        assertThrows(NotFoundException.class, () -> userRegistrationService.getRegistrationPendingOrThrow(id));
     }
 
-    @SuppressWarnings("unchecked")
-    private void stubQueryChain(UUID id, Optional<UserRegistration> result) {
-        Query<UserRegistration> query = mock(Query.class);
-        ExpressionList<UserRegistration> exl = mock(ExpressionList.class);
+    @Test
+    @Order(4)
+    void registerUserTest() {
+        RegisterRequestDTO fakeDto = mock(RegisterRequestDTO.class);
+        UserRegistration fakeProfile = mock(UserRegistration.class);
+
+        doReturn(fakeProfile)
+                .when(userRegistrationService)
+                .toUserRegistrationEntity(fakeDto);
+        when(keycloakService.createUserAccount(fakeDto)).thenReturn("123");
+        userRegistrationService.registerUser(fakeDto);
+
+        verify(fakeProfile).insert(transaction);
+        verify(transaction).commit();
+        verify(transaction).close();
+    }
+
+    @Test
+    @Order(5)
+    void registerUser_noKeycloak_failTest() {
+        RegisterRequestDTO fakeDto = mock(RegisterRequestDTO.class);
+        UserRegistration fakeProfile = mock(UserRegistration.class);
+        doReturn(fakeProfile)
+                .when(userRegistrationService)
+                .toUserRegistrationEntity(fakeDto);
+        when(keycloakService.createUserAccount(fakeDto)).thenReturn(null);
+        assertThrows(ServiceException.class, () -> userRegistrationService.registerUser(fakeDto));
+
+    }
+
+    @Test
+    @Order(6)
+    void registerUser_transactionFailTest() {
+        RegisterRequestDTO fakeDto = mock(RegisterRequestDTO.class);
+        UserRegistration fakeProfile = mock(UserRegistration.class);
+        doReturn(fakeProfile)
+                .when(userRegistrationService)
+                .toUserRegistrationEntity(fakeDto);
+        when(keycloakService.createUserAccount(fakeDto)).thenReturn("null");
+        doThrow(RuntimeException.class)
+                .when(fakeProfile).update(transaction);
+        assertThrows(ServiceException.class, () -> userRegistrationService.registerUser(fakeDto));
+
+        verify(transaction,never()).commit();
+        verify(transaction).close();
+    }
+
+    @Test
+    @Order(7)
+    void updateUserTest(){
+        UserRegistration  fakeProfile = mock(UserRegistration.class);
+        RegistrationStatus status = RegistrationStatus.PARTIAL_APPROVED;
+
+        userRegistrationService.updateRegistrationRequest(fakeProfile, status);
+
+        verify(fakeProfile).update(transaction);
+        verify(transaction).commit();
+        verify(transaction).close();
+    }
+
+    @Test
+    @Order(7)
+    void updateUserFailTest(){
+        UserRegistration  fakeProfile = mock(UserRegistration.class);
+        RegistrationStatus status = RegistrationStatus.PARTIAL_APPROVED;
+        doThrow(RuntimeException.class)
+                .when(fakeProfile).update(transaction);
+        assertThrows(ServiceException.class, () -> userRegistrationService.updateRegistrationRequest(fakeProfile, status));
+
+        verify(transaction,never()).commit();
+        verify(transaction).close();
+    }
+
+
+
+
+
+    private void getQuery(UserRegistration fakeProfile) {
+        Optional<UserRegistration> optional = fakeProfile == null ? Optional.empty() : Optional.of(fakeProfile);
+        baseQuery();
+        when(expressionList.idEq(any(UUID.class))).thenReturn(expressionList);
+        when(expressionList.eq(anyString(), any(RegistrationStatus.class))).thenReturn(expressionList);
+        when(expressionList.isNotNull(anyString())).thenReturn(expressionList);
+        when(expressionList.findOneOrEmpty()).thenReturn(optional);
+    }
+
+    private void baseQuery() {
         when(db.find(UserRegistration.class)).thenReturn(query);
-        when(query.where()).thenReturn(exl);
-        when(exl.idEq(id)).thenReturn(exl);
-        when(exl.eq(anyString(), any())).thenReturn(exl);
-        when(exl.isNotNull(anyString())).thenReturn(exl);
-        when(exl.findOneOrEmpty()).thenReturn(result);
+        when(query.setLabel(anyString())).thenReturn(query);
+        when(query.where()).thenReturn(expressionList);
     }
 
-    private RegisterRequestDTO buildRegisterDto() {
-        RegisterRequestDTO dto = new RegisterRequestDTO();
-        dto.setUsername("mario.rossi");
-        dto.setEmail("mario@example.com");
-        dto.setFirstName("Mario");
-        dto.setLastName("Rossi");
-        dto.setPassword("password123");
-        dto.setRequestedRoleIds(List.of("ADMIN"));
-        return dto;
-    }
-}*/
+}

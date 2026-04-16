@@ -41,7 +41,7 @@ public class UserRegistrationService {
         log.info("registerUser: New user request for username: {}", dto.getUsername());
 
         try (Transaction tx = db.beginTransaction()) {
-            UserRegistration rr = createRegistrationRequest(dto,tx);
+            UserRegistration rr = toUserRegistrationEntity(dto);
             rr.insert(tx);
             String userId = keycloakService.createUserAccount(dto);
             if(StringUtils.isBlank(userId)){
@@ -62,6 +62,7 @@ public class UserRegistrationService {
      */
     public PagedResultDTO<SimpleUserRegistrationDTO> findRegistrationRequest(BaseSearchRequest request) {
         ExpressionList<UserRegistration> exl = db.find(UserRegistration.class)
+                .setLabel("findRegistrationRequest")
                 .where()
                 .eq("status",RegistrationStatus.PENDING);
 
@@ -82,7 +83,7 @@ public class UserRegistrationService {
     }
 
 
-    private UserRegistration createRegistrationRequest(RegisterRequestDTO dto, Transaction tx){
+    public UserRegistration toUserRegistrationEntity(RegisterRequestDTO dto){
         UserRegistration request = new UserRegistration();
         request.setFullname(dto.getFirstName()+" "+dto.getLastName());
         request.setRequestedRoleType(lookupService.getRoleTypesForRegistration(dto.getRequestedRoleIds()));
@@ -93,6 +94,7 @@ public class UserRegistrationService {
 
     public UserRegistration getRegistrationPendingOrThrow(UUID id) {
         return db.find(UserRegistration.class)
+                .setLabel("getRegistrationPendingOrThrow")
                 .where()
                 .idEq(id)
                 .eq("status", RegistrationStatus.PENDING)
