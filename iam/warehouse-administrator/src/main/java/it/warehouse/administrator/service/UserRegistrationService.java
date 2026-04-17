@@ -4,6 +4,7 @@ import io.ebean.Database;
 import io.ebean.ExpressionList;
 import io.ebean.PagedList;
 import io.ebean.Transaction;
+import it.warehouse.administrator.config.UserRegistrationConfig;
 import it.warehouse.administrator.dto.PagedResultDTO;
 import it.warehouse.administrator.dto.RegisterRequestDTO;
 import it.warehouse.administrator.dto.search.BaseSearchRequest;
@@ -17,7 +18,11 @@ import jakarta.ws.rs.NotFoundException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
+
+import static java.lang.Integer.parseInt;
 
 @ApplicationScoped
 @Slf4j
@@ -25,6 +30,9 @@ public class UserRegistrationService {
 
     @Inject
     Database db;
+
+    @Inject
+    UserRegistrationConfig userRegistrationConfig;
 
     @Inject
     KeycloakService keycloakService;
@@ -104,5 +112,22 @@ public class UserRegistrationService {
                     log.error("findRegistrationOrThrow: Registration request not found: {}", id);
                     return new NotFoundException("findRegistrationOrThrow: Registration request not found: " + id);
                 });
+    }
+
+
+    public int deleteExpiredPending(){
+        try(Transaction tx = db.beginTransaction()) {
+            LocalDateTime expireDate =  LocalDateTime.now().plusDays(userRegistrationConfig.expireInDays());
+            return db.find(UserRegistration.class)
+                    .setLabel("deleteExpiredPending")
+                    .usingTransaction(tx)
+                    .where()
+                    .eq("status",RegistrationStatus.PENDING)
+                    .gt("_dataCreazione",expireDate)
+                    .delete();
+        } catch (Exception e){
+            log.error("deleteExpiredPending: Error while deleting expired user registration");
+            throw new ServiceException("Error while deleting expired user registration");
+        }
     }
 }
