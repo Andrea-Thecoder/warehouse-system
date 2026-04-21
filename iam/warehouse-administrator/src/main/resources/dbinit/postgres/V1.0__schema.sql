@@ -12,6 +12,7 @@ create table user_registration (
   _data_creazione               timestamptz not null,
   _data_modifica                timestamptz not null,
   keycloak_user_id              varchar(255),
+  fullname                      varchar(255) not null,
   status                        varchar(16) not null,
   _utente_creazione             varchar(255) not null,
   _utente_modifica              varchar(255) not null,
