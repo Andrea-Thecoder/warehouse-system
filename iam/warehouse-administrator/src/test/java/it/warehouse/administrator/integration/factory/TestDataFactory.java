@@ -8,6 +8,8 @@ import it.warehouse.administrator.model.UserRegistration;
 import it.warehouse.administrator.model.enumerator.RegistrationStatus;
 import org.keycloak.representations.idm.UserRepresentation;
 
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -29,6 +31,15 @@ public final class TestDataFactory {
 
     public static SimpleRoleTypeDTO warehouseOperatorRole() {
         return new SimpleRoleTypeDTO("WAREHOUSE_OPERATOR", "Operatore Magazzino");
+    }
+
+    public static UserRegistration expiredPendingRegistration(Database db, String keycloakUserId) {
+        UserRegistration reg = pendingRegistration(db, keycloakUserId);
+        db.sqlUpdate("UPDATE user_registration SET _data_creazione = :ts WHERE id = :id")
+                .setParameter("ts", Timestamp.valueOf(LocalDateTime.now().minusDays(30)))
+                .setParameter("id", reg.getId())
+                .execute();
+        return reg;
     }
 
     public static RegisterRequestDTO validRegistration() {

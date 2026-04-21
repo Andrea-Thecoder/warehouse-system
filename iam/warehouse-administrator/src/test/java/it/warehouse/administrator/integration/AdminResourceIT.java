@@ -135,6 +135,7 @@ class AdminResourceIT extends AbstractBaseIT {
         assertNotNull(result.getMessage());
 
         UserRegistration updated = db.find(UserRegistration.class, reg.getId());
+        assertNotNull(updated);
         assertEquals(RegistrationStatus.APPROVED, updated.getStatus());
 
         verify(keycloakService).approveUser(any(), any());

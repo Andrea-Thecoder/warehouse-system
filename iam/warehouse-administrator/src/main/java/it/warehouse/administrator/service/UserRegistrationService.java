@@ -117,14 +117,16 @@ public class UserRegistrationService {
 
     public int deleteExpiredPending(){
         try(Transaction tx = db.beginTransaction()) {
-            LocalDateTime expireDate =  LocalDateTime.now().plusDays(userRegistrationConfig.expireInDays());
-            return db.find(UserRegistration.class)
+            LocalDateTime expireDate =  LocalDateTime.now().minusDays(userRegistrationConfig.expireInDays());
+            int deleted = db.find(UserRegistration.class)
                     .setLabel("deleteExpiredPending")
                     .usingTransaction(tx)
                     .where()
                     .eq("status",RegistrationStatus.PENDING)
-                    .gt("_dataCreazione",expireDate)
+                    .lt("_dataCreazione",expireDate)
                     .delete();
+            tx.commit();
+            return deleted;
         } catch (Exception e){
             log.error("deleteExpiredPending: Error while deleting expired user registration");
             throw new ServiceException("Error while deleting expired user registration");
