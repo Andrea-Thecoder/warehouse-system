@@ -1,6 +1,7 @@
 package it.warehouse.administrator.dto.search;
 
 import io.ebean.ExpressionList;
+import it.warehouse.administrator.exception.ServiceException;
 import jakarta.validation.constraints.Min;
 import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.QueryParam;
@@ -8,10 +9,15 @@ import lombok.Getter;
 import lombok.Setter;
 import org.apache.commons.lang3.StringUtils;
 
+import java.util.regex.Pattern;
+
 @Getter
 @Setter
-
 public class BaseSearchRequest {
+
+    // Whitelist: solo identificatori semplici (lettere, cifre, underscore).
+    // Blocca qualsiasi tentativo di injection tipo "id; DROP TABLE" o "1=1--".
+    private static final Pattern SAFE_SORT_FIELD = Pattern.compile("^[a-zA-Z_][a-zA-Z0-9_]*$");
     @QueryParam("page")
     @DefaultValue("1")
     @Min(1)
@@ -34,9 +40,12 @@ public class BaseSearchRequest {
         int offset = (this.getPage() - 1) * rows;
         String order = this.getSort();
         String direction = descending ? " asc" : " desc";
-        if(StringUtils.isNotBlank(order)){
+        if (StringUtils.isNotBlank(order)) {
+            if (!SAFE_SORT_FIELD.matcher(order).matches()) {
+                throw new ServiceException("Invalid sort field: " + order);
+            }
             query.orderBy(order + direction);
-        }else if (StringUtils.isNotBlank(defaultSort)) {
+        } else if (StringUtils.isNotBlank(defaultSort)) {
             query.orderBy(defaultSort);
         } else query.orderById(true);
         query.setFirstRow(offset).setMaxRows(rows);

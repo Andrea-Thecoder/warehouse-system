@@ -8,6 +8,7 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.core.Response;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.eclipse.microprofile.faulttolerance.CircuitBreaker;
 import org.keycloak.admin.client.CreatedResponseUtil;
 import org.keycloak.admin.client.Keycloak;
 import org.keycloak.admin.client.resource.RealmResource;
@@ -23,6 +24,9 @@ import java.util.stream.Collectors;
 
 @ApplicationScoped
 @Slf4j
+// Valori di default sovrascrivibili da application.properties:
+// KeycloakService/CircuitBreaker/requestVolumeThreshold, failureRatio, delay, successThreshold
+@CircuitBreaker(requestVolumeThreshold = 5, failureRatio = 0.6, delay = 10000, successThreshold = 2)
 public class KeycloakService {
 
 

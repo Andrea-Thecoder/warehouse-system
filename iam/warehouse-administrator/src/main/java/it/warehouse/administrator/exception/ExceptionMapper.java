@@ -7,6 +7,7 @@ import io.quarkus.security.ForbiddenException;
 import io.quarkus.security.UnauthorizedException;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.MediaType;
+import org.eclipse.microprofile.faulttolerance.exceptions.CircuitBreakerOpenException;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 import org.jboss.resteasy.reactive.RestResponse.Status;
@@ -18,6 +19,14 @@ public class ExceptionMapper {
     public RestResponse<ExceptionResponse> mapException(RuntimeException ex) {
         return ResponseBuilder
                 .create(Status.BAD_REQUEST, new ExceptionResponse(Status.BAD_REQUEST.getStatusCode(), ex))
+                .type(MediaType.APPLICATION_JSON)
+                .build();
+    }
+
+    @ServerExceptionMapper
+    public RestResponse<ExceptionResponse> mapException(CircuitBreakerOpenException ex) {
+        return ResponseBuilder
+                .create(Status.SERVICE_UNAVAILABLE, new ExceptionResponse(Status.SERVICE_UNAVAILABLE.getStatusCode(), ex))
                 .type(MediaType.APPLICATION_JSON)
                 .build();
     }
