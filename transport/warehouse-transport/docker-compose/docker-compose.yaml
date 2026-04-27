@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  warehouse_transport_db:
+    image: postgres:17.2
+    container_name: warehouse_transport
+    ports:
+      - "5434:5432"
+    environment:
+      - POSTGRES_DB=warehouse_transport
+      - POSTGRES_USER=warehouse_transport
+      - POSTGRES_PASSWORD=warehouse_transport
+    volumes:
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
