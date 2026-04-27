@@ -25,7 +25,6 @@ public class UserRegistrationScheduler {
 
     @Scheduled(identity = "userRegistration-cleanup", cron = "{scheduler.cron}")
     @SchedulerLock(name = "userRegistrationLock", lockAtLeastFor = "PT1M", lockAtMostFor = "PT9M")
-    @Retry(maxRetries = 5, delay = 10000)
     public void deleteUserRegistrationPending(){
         log.info("deleteUserRegistrationPending: Starting scheduler task for deleting user registration pending...");
         if(!schedulerConfig.enabled()){

@@ -1,6 +1,6 @@
-/*
 package it.warehouse.administrator.unit.security;
 
+import it.warehouse.administrator.security.JwtService;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -81,4 +81,4 @@ class JwtServiceTest {
     private void stubRoles(List<String> roles) {
         when(jwtToken.getClaim("realm_access")).thenReturn(Map.of("roles", roles));
     }
-}*/
+}

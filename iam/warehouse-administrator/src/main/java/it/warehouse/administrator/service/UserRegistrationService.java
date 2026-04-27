@@ -17,6 +17,7 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.NotFoundException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.eclipse.microprofile.faulttolerance.Retry;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -114,7 +115,7 @@ public class UserRegistrationService {
                 });
     }
 
-
+    @Retry(maxRetries = 5, delay = 10000)
     public int deleteExpiredPending(){
         try(Transaction tx = db.beginTransaction()) {
             LocalDateTime expireDate =  LocalDateTime.now().minusDays(userRegistrationConfig.expireInDays());
