@@ -4,7 +4,6 @@ import it.warehouse.administrator.dto.RegisterRequestDTO;
 import it.warehouse.administrator.dto.role.SimpleRoleTypeDTO;
 import it.warehouse.administrator.exception.ServiceException;
 import it.warehouse.administrator.service.KeycloakService;
-import it.warehouse.administrator.service.LookupService;
 import jakarta.ws.rs.core.Response;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -133,7 +132,7 @@ class KeycloakServiceTest extends KeycloakMockTest {
     @Test
     @Order(10)
     void getRolesFromUser_shouldReturnOnlyRolesPresentInRolesMap() {
-        LookupService.rolesMap = Map.of("ADMIN", "Amministratore");
+        when(lookupService.getRolesMap()).thenReturn(Map.of("ADMIN", "Amministratore"));
         userRepresentation.setId("kc-id");
 
         List<SimpleRoleTypeDTO> roles = keycloakService.getRolesFromUser(userRepresentation);
@@ -146,7 +145,7 @@ class KeycloakServiceTest extends KeycloakMockTest {
     @Test
     @Order(11)
     void getRolesFromUser_shouldReturnEmpty_whenNoRoleMatchesMap() {
-        LookupService.rolesMap = Map.of();
+        when(lookupService.getRolesMap()).thenReturn(Map.of());
 
         List<SimpleRoleTypeDTO> roles = keycloakService.getRolesFromUser(userRepresentation);
 
@@ -156,7 +155,7 @@ class KeycloakServiceTest extends KeycloakMockTest {
     @Test
     @Order(12)
     void changeRolesForUser_shouldRemoveCurrentRolesAndAssignNew() {
-        LookupService.rolesMap = Map.of("ADMIN", "Amministratore");
+        when(lookupService.getRolesMap()).thenReturn(Map.of("ADMIN", "Amministratore"));
 
         keycloakService.changeRolesForUser("kc-id", Set.of("ADMIN"));
 
@@ -167,7 +166,7 @@ class KeycloakServiceTest extends KeycloakMockTest {
     @Test
     @Order(13)
     void changeRolesForUser_shouldIgnoreRolesNotPresentInRolesMap() {
-        LookupService.rolesMap = Map.of("ADMIN", "Amministratore");
+        when(lookupService.getRolesMap()).thenReturn(Map.of("ADMIN", "Amministratore"));
 
         keycloakService.changeRolesForUser("kc-id", Set.of("UNKNOWN_ROLE"));
 

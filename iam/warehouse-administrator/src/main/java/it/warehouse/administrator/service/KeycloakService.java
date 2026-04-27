@@ -17,10 +17,9 @@ import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-
-import static it.warehouse.administrator.service.LookupService.rolesMap;
 
 @ApplicationScoped
 @Slf4j
@@ -30,6 +29,9 @@ public class KeycloakService {
     @SuppressWarnings({})
     @Inject
     Keycloak keycloak;
+
+    @Inject
+    LookupService lookupService;
 
     @ConfigProperty(name = "quarkus.keycloak.admin-client.realm")
     String realm;
@@ -87,17 +89,23 @@ public class KeycloakService {
         return keycloak.realm(realm).users().list(firstResult, size);
     }
 
+    public int countUsers() {
+        return keycloak.realm(realm).users().count();
+    }
+
     public List<SimpleRoleTypeDTO> getRolesFromUser(UserRepresentation user) {
+        Map<String, String> rolesMap = lookupService.getRolesMap();
         UserResource userResource = keycloak.realm(realm).users().get(user.getId());
         List<RoleRepresentation> roles = userResource.roles().realmLevel().listAll();
-       return roles.stream()
-               .filter(role -> rolesMap.containsKey(role.getName()))
-               .map(rr -> new SimpleRoleTypeDTO(rr.getName(),rolesMap.get(rr.getName())))
-               .collect(Collectors.toList());
+        return roles.stream()
+                .filter(role -> rolesMap.containsKey(role.getName()))
+                .map(rr -> new SimpleRoleTypeDTO(rr.getName(), rolesMap.get(rr.getName())))
+                .collect(Collectors.toList());
     }
 
     public void changeRolesForUser(String keycloakUserId, Set<String> requestedRoles) {
         log.info("changeRolesForUser: Changing roles for User {} ", keycloakUserId);
+        Map<String, String> rolesMap = lookupService.getRolesMap();
         UserResource userResource = keycloak.realm(realm).users().get(keycloakUserId);
 
         List<RoleRepresentation> currentRoles = userResource.roles().realmLevel().listAll()
@@ -121,8 +129,9 @@ public class KeycloakService {
     }
 
     public void deleteUser(String keycloakUserId) {
-        log.info("deleteUser: User {} deleted from Keycloak", keycloakUserId);
+        log.info("deleteUser: Deleting user {} from Keycloak", keycloakUserId);
         rejectUser(keycloakUserId);
+        log.info("deleteUser: User {} deleted from Keycloak", keycloakUserId);
     }
 
     private UserRepresentation buildUser(RegisterRequestDTO dto) {

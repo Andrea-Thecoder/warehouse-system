@@ -56,7 +56,7 @@ public class AdminResource {
             summary = "Approve request",
             description = "Enables the user on Keycloak and assigns the requested roles"
     )
-    @APIResponse(responseCode = "204", description = "Request approved successfully")
+    @APIResponse(responseCode = "200", description = "Request approved successfully")
     @APIResponse(responseCode = "400", description = "Request is not in PENDING status")
     @APIResponse(responseCode = "404", description = "Request not found")
     public SimpleResultDTO<Void> approve(
@@ -75,7 +75,7 @@ public class AdminResource {
             summary = "Reject request",
             description = "Deletes the user from Keycloak and marks the request as REJECTED"
     )
-    @APIResponse(responseCode = "204", description = "Request rejected successfully")
+    @APIResponse(responseCode = "200", description = "Request rejected successfully")
     @APIResponse(responseCode = "400", description = "Request is not in PENDING status")
     @APIResponse(responseCode = "404", description = "Request not found")
     public SimpleResultDTO<Void> reject(@PathParam("id") UUID id) {
@@ -88,14 +88,14 @@ public class AdminResource {
     @PATCH
     @Path("/users/{userId}/manager-enable")
     @Operation(summary = "manager enabled status", description = "manager enable status for the user on Keycloak")
-    @APIResponse(responseCode = "200", description = "User disabled successfully")
+    @APIResponse(responseCode = "200", description = "User enabled/disabled successfully")
     @APIResponse(responseCode = "404", description = "User not found")
     public SimpleResultDTO<Void> handleEnabledUser(
             @PathParam("userId") String userId,
             @QueryParam("enable") boolean enable) {
-        adminService.handleEnabledUser(userId,enable);
+        adminService.handleEnabledUser(userId, enable);
         return SimpleResultDTO.<Void>builder()
-                .message("User disabled successfully")
+                .message(enable ? "User enabled successfully" : "User disabled successfully")
                 .build();
     }
 

@@ -22,11 +22,11 @@ public class LookupService {
     Database db;
 
     @Getter
-    public static Map<String, String> rolesMap = new HashMap<>();
+    private Map<String, String> rolesMap = new HashMap<>();
 
     @PostConstruct
     public void init() {
-        rolesMap = getLabelForRoles();
+        this.rolesMap = getLabelForRoles();
     }
 
     public List<RoleType> findRoles() {

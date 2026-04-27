@@ -33,7 +33,7 @@ public class AuthResource {
             description = "Creates a disabled user on Keycloak and saves the request in PENDING status. " +
                           "An administrator must approve it before the user can log in."
     )
-    @APIResponse(responseCode = "201", description = "Registration request created successfully")
+    @APIResponse(responseCode = "200", description = "Registration request created successfully")
     @APIResponse(responseCode = "400", description = "Invalid data or username/email already in use")
     public SimpleResultDTO<Void> register(@Valid RegisterRequestDTO dto) {
         authService.register(dto);

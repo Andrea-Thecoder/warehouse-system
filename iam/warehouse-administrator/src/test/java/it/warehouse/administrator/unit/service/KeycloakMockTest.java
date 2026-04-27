@@ -2,6 +2,7 @@ package it.warehouse.administrator.unit.service;
 
 
 import it.warehouse.administrator.service.KeycloakService;
+import it.warehouse.administrator.service.LookupService;
 import jakarta.ws.rs.core.Response;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,6 +25,9 @@ class KeycloakMockTest {
 
     @Mock
     Keycloak keycloak;
+
+    @Mock
+    LookupService lookupService;
 
     @InjectMocks
     @Spy

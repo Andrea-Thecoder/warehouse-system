@@ -37,7 +37,7 @@ public class AdminService {
 
     /**
      * Lists all Keycloak realm users with their roles from the DB RoleType table.
-     * Total calls: 1 Keycloak (users list) + 1 Keycloak (count) + 1 DB (batch roles by keycloakUserIds).
+     * Total calls: 1 Keycloak (users list) + 1 Keycloak (count) + N Keycloak (roles per user, one per page item).
      */
     public PagedResultDTO<SimpleKeycloakUserDTO> findKeycloakUser(BaseSearchRequest request) {
         log.info("findKeycloakUser: Starting retrieving user from keycloak.");
@@ -46,7 +46,7 @@ public class AdminService {
         int firstResult = (page - 1) * size;
 
         List<UserRepresentation> keycloakUsers = keycloakService.fetchUsers(firstResult, size);
-        int total = keycloakUsers.size();
+        int total = keycloakService.countUsers();
         List<SimpleKeycloakUserDTO> dtos = keycloakUsers.stream()
                 .map(u -> SimpleKeycloakUserDTO.of(u, keycloakService.getRolesFromUser(u)))
                 .toList();
