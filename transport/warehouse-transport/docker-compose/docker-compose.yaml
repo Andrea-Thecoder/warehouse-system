@@ -3,7 +3,7 @@ version: '3.8'
 services:
   warehouse_transport_db:
     image: postgres:17.2
-    container_name: warehouse_transport
+    container_name: warehouse_transport_db
     ports:
       - "5434:5432"
     environment:
@@ -12,3 +12,20 @@ services:
       - POSTGRES_PASSWORD=warehouse_transport
     volumes:
       - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+
+
+  valhalla:
+    image: ghcr.io/gis-ops/docker-valhalla/valhalla:latest
+    container_name: warehouse_valhalla
+    ports:
+      - "8002:8002"
+    volumes:
+      - ../data:/custom_files
+      - ../valhalla-tiles:/tiles
+    environment:
+      - tile_urls=https://download.geofabrik.de/europe/italy-latest.osm.pbf
+      - force_rebuild=False
+      - build_elevation=False
+      - build_admins=True
+      - build_time_zones=True
+    restart: unless-stopped
